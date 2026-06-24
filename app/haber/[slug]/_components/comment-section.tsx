@@ -173,7 +173,7 @@ function CommentItem({
             </span>
           )}
 
-          {currentUser && !isReply && (
+          {currentUser && (
             <button
               type="button"
               onClick={() => setReplying((v) => !v)}
@@ -194,6 +194,7 @@ function CommentItem({
               compact
               onDone={() => setReplying(false)}
               placeholder={`@${c.author.username} kullanıcısına yanıt yaz…`}
+              defaultBody={isReply ? `@${c.author.username} ` : ""}
             />
           </div>
         )}
@@ -210,6 +211,7 @@ function CommentForm({
   compact,
   onDone,
   placeholder = "Düşüncelerini paylaş…",
+  defaultBody = "",
 }: {
   articleId: string;
   slug: string;
@@ -218,6 +220,7 @@ function CommentForm({
   compact?: boolean;
   onDone?: () => void;
   placeholder?: string;
+  defaultBody?: string;
 }) {
   const [state, formAction, pending] = useActionState<CommentState, FormData>(
     addCommentAction,
@@ -265,6 +268,7 @@ function CommentForm({
           name="body"
           rows={compact ? 2 : 3}
           placeholder={placeholder}
+          defaultValue={defaultBody}
           onPaste={(e) => {
             const item = Array.from(e.clipboardData.items).find((i) =>
               i.type.startsWith("image/")
