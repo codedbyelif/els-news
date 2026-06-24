@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, User as UserIcon, LogOut, FileText, ChevronDown } from "lucide-react";
+import { Search, User as UserIcon, LogOut, FileText, ChevronDown, Shield } from "lucide-react";
 import type { PublicUser } from "@/lib/types";
 import { Avatar } from "@/components/avatar";
 import { logoutAction } from "@/app/actions/auth";
@@ -88,9 +88,13 @@ export function HeaderActions({ user }: { user: PublicUser | null }) {
                 <FileText className="h-4 w-4" /> Haberlerim
               </Link>
               {user.is_admin && (
-                <span className="block px-3 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-primary">
-                  Admin
-                </span>
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-accent"
+                >
+                  <Shield className="h-4 w-4" /> Yönetim Paneli
+                </Link>
               )}
               <form action={logoutAction} className="border-t border-border">
                 <button
