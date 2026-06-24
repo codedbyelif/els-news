@@ -41,10 +41,17 @@ export interface Comment {
   article_id: string;
   author_id: string;
   body: string;
+  image_url: string | null;
+  parent_id: string | null;
   created_at: string;
 }
 
 /** Yorumlarda yazar GÖRÜNÜR — profil fotoğrafı ve adıyla birlikte. */
 export interface CommentWithAuthor extends Comment {
   author: PublicUser;
+  like_count: number;
+  /** Giriş yapan kullanıcı bu yorumu beğendi mi? */
+  liked_by_me: boolean;
+  /** Tek seviye yanıtlar (yalnızca üst düzey yorumlarda doludur). */
+  replies?: CommentWithAuthor[];
 }

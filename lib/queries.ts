@@ -93,16 +93,62 @@ export async function incrementViews(id: string): Promise<void> {
   await supabase.rpc("increment_article_views", { article_id: id });
 }
 
-export async function getComments(articleId: string): Promise<CommentWithAuthor[]> {
+/**
+ * Bir haberin yorumlarını beğeni sayıları ve tek seviye yanıtlarıyla getirir.
+ * Üst düzey yorumlar yeniden->eskiye; yanıtlar eskiden->yeniye sıralanır.
+ * `currentUserId` verilirse her yorumun kullanıcı tarafından beğenilip
+ * beğenilmediği (`liked_by_me`) hesaplanır.
+ */
+export async function getComments(
+  articleId: string,
+  currentUserId?: string
+): Promise<CommentWithAuthor[]> {
   const supabase = getSupabaseAdmin();
   const { data } = await supabase
     .from("comments")
     .select(
-      "*, author:users(id, username, display_name, avatar_url, is_admin, created_at)"
+      "*, author:users!comments_author_id_fkey(id, username, display_name, avatar_url, is_admin, created_at)"
     )
     .eq("article_id", articleId)
-    .order("created_at", { ascending: false });
-  return (data ?? []) as unknown as CommentWithAuthor[];
+    .order("created_at", { ascending: true });
+
+  const rows = (data ?? []) as unknown as CommentWithAuthor[];
+  if (rows.length === 0) return [];
+
+  // Beğeni sayıları + kullanıcının beğenileri
+  const ids = rows.map((r) => r.id);
+  const { data: likeRows } = await supabase
+    .from("comment_likes")
+    .select("comment_id, user_id")
+    .in("comment_id", ids);
+
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  for (const l of likeRows ?? []) {
+    counts.set(l.comment_id, (counts.get(l.comment_id) ?? 0) + 1);
+    if (currentUserId && l.user_id === currentUserId) mine.add(l.comment_id);
+  }
+
+  for (const r of rows) {
+    r.like_count = counts.get(r.id) ?? 0;
+    r.liked_by_me = mine.has(r.id);
+    r.replies = [];
+  }
+
+  // Tek seviye ağaç: yanıtları üst yorumun altına yerleştir.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const top: CommentWithAuthor[] = [];
+  for (const r of rows) {
+    if (r.parent_id && byId.has(r.parent_id)) {
+      byId.get(r.parent_id)!.replies!.push(r);
+    } else {
+      top.push(r);
+    }
+  }
+
+  // Üst yorumlar yeniden eskiye; yanıtlar zaten eskiden yeniye.
+  top.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  return top;
 }
 
 export async function getArticlesByAuthor(
