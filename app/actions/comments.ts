@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
+import { createNotification } from "@/lib/notifications";
 
 export interface CommentState {
   error?: string;
@@ -40,15 +41,69 @@ export async function addCommentAction(
   }
 
   const supabase = getSupabaseAdmin();
-  const { error } = await supabase.from("comments").insert({
-    article_id: articleId,
-    author_id: user.id,
-    body,
-    image_url: imageUrl || null,
-    parent_id: parentId || null,
-  });
 
-  if (error) return { error: "Yorum eklenemedi. Tekrar deneyin." };
+  // Yanıt mantığı: bir yanıta yanıt verilirse, thread tek seviye kalsın diye
+  // yeni yorum KÖK yoruma bağlanır. Yanıt verilen yorumun sahibine bildirim
+  // gider. (parent = doğrudan yanıt verilen yorum; root = thread başı.)
+  let rootParentId: string | null = null;
+  let repliedToAuthorId: string | null = null;
+  if (parentId) {
+    const { data: parent } = await supabase
+      .from("comments")
+      .select("id, author_id, parent_id")
+      .eq("id", parentId)
+      .maybeSingle();
+    if (parent) {
+      rootParentId = parent.parent_id ?? parent.id; // yanıtın yanıtıysa köke bağla
+      repliedToAuthorId = parent.author_id;
+    }
+  }
+
+  const { data: inserted, error } = await supabase
+    .from("comments")
+    .insert({
+      article_id: articleId,
+      author_id: user.id,
+      body,
+      image_url: imageUrl || null,
+      parent_id: rootParentId,
+    })
+    .select("id")
+    .single();
+
+  if (error || !inserted) return { error: "Yorum eklenemedi. Tekrar deneyin." };
+
+  // Bildirimler
+  if (rootParentId && repliedToAuthorId) {
+    // Yanıt → yanıt verilen yorumun sahibine
+    await createNotification({
+      userId: repliedToAuthorId,
+      actorId: user.id,
+      type: "reply",
+      articleId,
+      articleSlug: slug || null,
+      commentId: inserted.id,
+      preview: body,
+    });
+  } else {
+    // Üst düzey yorum → haber sahibine
+    const { data: article } = await supabase
+      .from("articles")
+      .select("author_id")
+      .eq("id", articleId)
+      .maybeSingle();
+    if (article) {
+      await createNotification({
+        userId: article.author_id,
+        actorId: user.id,
+        type: "comment",
+        articleId,
+        articleSlug: slug || null,
+        commentId: inserted.id,
+        preview: body,
+      });
+    }
+  }
 
   if (slug) revalidatePath(`/haber/${slug}`);
   return { ok: true };
@@ -83,6 +138,25 @@ export async function toggleCommentLikeAction(
     await supabase
       .from("comment_likes")
       .insert({ comment_id: commentId, user_id: user.id });
+
+    // Yeni beğeni → yorum sahibine bildirim
+    const { data: comment } = await supabase
+      .from("comments")
+      .select("author_id, body, article_id, articles(slug)")
+      .eq("id", commentId)
+      .maybeSingle();
+    if (comment) {
+      await createNotification({
+        userId: comment.author_id,
+        actorId: user.id,
+        type: "like",
+        articleId: comment.article_id,
+        articleSlug:
+          (comment as unknown as { articles?: { slug?: string } }).articles?.slug ?? (slug || null),
+        commentId,
+        preview: comment.body,
+      });
+    }
   }
 
   if (slug) revalidatePath(`/haber/${slug}`);
