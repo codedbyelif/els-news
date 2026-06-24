@@ -50,12 +50,12 @@ export default async function ArticlePage({ params }: PageProps) {
   const article = await getArticleBySlug(slug);
   if (!article) notFound();
 
-  // Okunmayı artır (await etmiyoruz ki sayfa beklemesin diye değil, basitlik için await).
+  // Okunmayı artır.
   await incrementViews(article.id);
 
-  const [user, comments, related] = await Promise.all([
-    getCurrentUser(),
-    getComments(article.id),
+  const user = await getCurrentUser();
+  const [comments, related] = await Promise.all([
+    getComments(article.id, user?.id),
     getLatestArticles(4, article.id),
   ]);
 
