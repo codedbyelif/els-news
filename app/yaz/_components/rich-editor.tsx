@@ -21,7 +21,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { uploadImageAction } from "@/app/actions/upload";
-import { cn } from "@/lib/utils";
+import { cn, imageFileError } from "@/lib/utils";
 
 interface RichEditorProps {
   /** Gizli input'a yazılacak HTML'i güncelleyen callback. */
@@ -34,6 +34,11 @@ export function RichEditor({ onChange }: RichEditorProps) {
 
   const upload = useCallback(
     async (file: File): Promise<string | null> => {
+      const sizeErr = imageFileError(file);
+      if (sizeErr) {
+        alert(sizeErr);
+        return null;
+      }
       setUploading(true);
       try {
         const fd = new FormData();

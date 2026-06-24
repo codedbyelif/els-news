@@ -6,7 +6,7 @@ import Image from "next/image";
 import { MessageCircle, Trash2, Heart, Reply, ImagePlus, X, Loader2 } from "lucide-react";
 import type { CommentWithAuthor, PublicUser } from "@/lib/types";
 import { Avatar } from "@/components/avatar";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, imageFileError } from "@/lib/utils";
 import {
   addCommentAction,
   deleteCommentAction,
@@ -240,6 +240,11 @@ function CommentForm({
   }, [state.ok, onDone]);
 
   const handleFile = useCallback(async (file: File) => {
+    const sizeErr = imageFileError(file);
+    if (sizeErr) {
+      alert(sizeErr);
+      return;
+    }
     setUploading(true);
     try {
       const fd = new FormData();

@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { uploadImageAction } from "@/app/actions/upload";
+import { imageFileError } from "@/lib/utils";
 
 interface CoverUploaderProps {
   value: string;
@@ -17,6 +18,11 @@ export function CoverUploader({ value, onChange }: CoverUploaderProps) {
 
   const handleFile = useCallback(
     async (file: File) => {
+      const sizeErr = imageFileError(file);
+      if (sizeErr) {
+        alert(sizeErr);
+        return;
+      }
       setUploading(true);
       try {
         const fd = new FormData();

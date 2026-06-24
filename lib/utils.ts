@@ -36,6 +36,24 @@ export function formatDate(date: string | Date): string {
   });
 }
 
+/** Yüklenebilecek en büyük görsel boyutu (bayt). Sunucu sınırıyla aynı. */
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Görseli yüklemeden önce istemcide kontrol eder. Sorun varsa kullanıcıya
+ * gösterilecek Türkçe mesajı döndürür; yoksa null.
+ */
+export function imageFileError(file: File): string | null {
+  if (!file.type.startsWith("image/")) {
+    return "Sadece görsel dosyası yükleyebilirsiniz.";
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return `Görsel çok büyük (${mb} MB). En fazla 10 MB yükleyebilirsiniz.`;
+  }
+  return null;
+}
+
 /** Başlıktan URL slug üretir (Türkçe karakter desteğiyle). */
 export function slugify(text: string): string {
   const map: Record<string, string> = {
