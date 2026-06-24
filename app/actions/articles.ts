@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+import { checkRateLimit, rateLimitMessage } from "@/lib/rate-limit";
 
 export interface ArticleFormState {
   error?: string;
@@ -41,11 +42,19 @@ export async function publishArticleAction(
 
   const values = { title, body, cover_image_url: cover };
 
-  if (title.length < 8) {
-    return { error: "Başlık en az 8 karakter olmalı.", values };
+  if (title.length === 0) {
+    return { error: "Başlık boş olamaz.", values };
   }
-  if (textLength(body) < 40) {
-    return { error: "Haber metni en az 40 karakter olmalı.", values };
+  if (textLength(body) === 0) {
+    return { error: "Haber metni boş olamaz.", values };
+  }
+
+  // Spam koruması: 10 dakikada en fazla 5 haber.
+  if (!user.is_admin) {
+    const rate = await checkRateLimit("articles", user.id, 5, 600);
+    if (!rate.allowed) {
+      return { error: rateLimitMessage("article"), values };
+    }
   }
 
   const supabase = getSupabaseAdmin();
