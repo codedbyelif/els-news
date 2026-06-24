@@ -1,6 +1,11 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import type { Article, ArticleListItem, CommentWithAuthor } from "@/lib/types";
+import type {
+  Article,
+  ArticleListItem,
+  CommentWithAuthor,
+  AppNotification,
+} from "@/lib/types";
 
 /**
  * Bir haber listesine yorum sayılarını ekler. Haberlerde yazar bilgisi
@@ -175,4 +180,38 @@ export async function searchArticles(q: string, limit = 30): Promise<ArticleList
     .order("created_at", { ascending: false })
     .limit(limit);
   return attachCommentCounts((data ?? []) as Article[]);
+}
+
+// ---------------------------------------------------------------------
+// Bildirimler
+// ---------------------------------------------------------------------
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+  // notifications tablosu henüz oluşturulmadıysa (migration çalıştırılmadan)
+  // hata yutulur ve 0 döner.
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export async function getNotifications(
+  userId: string,
+  limit = 30
+): Promise<AppNotification[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select(
+      "*, actor:users!notifications_actor_id_fkey(id, username, display_name, avatar_url, is_admin, created_at)"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []) as unknown as AppNotification[];
 }

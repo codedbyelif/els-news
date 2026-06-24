@@ -55,3 +55,19 @@ export interface CommentWithAuthor extends Comment {
   /** Tek seviye yanıtlar (yalnızca üst düzey yorumlarda doludur). */
   replies?: CommentWithAuthor[];
 }
+
+export type NotificationType = "comment" | "like" | "reply";
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  type: NotificationType;
+  article_id: string | null;
+  article_slug: string | null;
+  comment_id: string | null;
+  preview: string | null;
+  is_read: boolean;
+  created_at: string;
+  actor: PublicUser;
+}
