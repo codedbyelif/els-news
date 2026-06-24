@@ -2,14 +2,24 @@ import Link from "next/link";
 import { PenLine } from "lucide-react";
 import type { PublicUser } from "@/lib/types";
 import { HeaderActions } from "@/components/header-actions";
+import { NotificationBell } from "@/components/notification-bell";
+import { getNotifications, getUnreadNotificationCount } from "@/lib/queries";
 
-export function SiteHeader({ user }: { user: PublicUser | null }) {
+export async function SiteHeader({ user }: { user: PublicUser | null }) {
   const today = new Date().toLocaleDateString("tr-TR", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
+
+  // Giriş yapan kullanıcı için bildirimleri çek.
+  const [notifications, unreadCount] = user
+    ? await Promise.all([
+        getNotifications(user.id, 30),
+        getUnreadNotificationCount(user.id),
+      ])
+    : [[], 0];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
@@ -18,7 +28,12 @@ export function SiteHeader({ user }: { user: PublicUser | null }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-1.5 text-xs text-muted-foreground sm:px-6">
           <span className="hidden capitalize sm:block">{today}</span>
           <span className="font-semibold text-primary sm:hidden">ELS NEWS</span>
-          <HeaderActions user={user} />
+          <div className="flex items-center gap-1">
+            {user && (
+              <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+            )}
+            <HeaderActions user={user} />
+          </div>
         </div>
       </div>
 
